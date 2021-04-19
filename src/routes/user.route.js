@@ -17,12 +17,6 @@ router.get('/equipments', authentication, userController.getAllEquipmentsOnUser)
 // View logged in user profile
 router.get('/me', authentication, userController.getProfile)
 
-// View logged in user profile
-router.get('/me/authenticated', authentication, userController.isAuthenticated)
-
-// Refresh token
-router.post('/me/refresh', authentication, userController.refreshToken)
-
 // Log user out of the application
 router.post('/me/logout', authentication, userController.logout)
 

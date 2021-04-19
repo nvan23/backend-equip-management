@@ -6,6 +6,6 @@ const authorization = require('../middlewares/authorization')
 const router = express.Router()
 
 // Get all users with Username and Id
-router.get('/', authentication, authorization, userController.getAllUsersWithUserAndId)
+router.get('/', authentication, authorization, userController.getUsernameAndIdOfAllUsers)
 
 module.exports = router

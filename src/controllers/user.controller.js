@@ -1,9 +1,7 @@
 'use strict'
 
+const bcrypt = require('bcryptjs')
 const User = require("../models/user.model")
-const jwtVariable = require('./../constants/jwt')
-const authMethod = require('./auth/auth.methods')
-const randToken = require('rand-token')
 
 exports.register = async (req, res) => {
   try {
@@ -24,115 +22,30 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   const { email, password } = req.body
-  const user = await User.findByCredentials(email, password)
+
+  // Search for a user by email and password.
+  const user = await User.findOne({ email })
 
   if (!user) {
-    return res.status(404).json({ error: 'Login failed.' })
+    return res.status(404).json({ msg: 'Email and password are incorrect.' })
+  }
+
+  const isPasswordMatch = await bcrypt.compare(password, user.password)
+
+  if (!isPasswordMatch) {
+    return res.status(404).json({ msg: 'Email and password are incorrect.' })
   }
 
   const token = await user.generateAuthToken()
+  const refreshToken = await user.generateRefreshToken()
 
-  return res.json({
+  return res.status(200).json({
     msg: 'Logged in successfully.',
     token,
-    user: {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      equipments: user.equipments,
-    },
+    refreshToken,
+    user,
   })
 }
-
-exports.isAuthenticated = async (req, res) => {
-  const accessTokenFromHeader = req.headers.x_authorization;
-  if (!accessTokenFromHeader) {
-    return res.status(404).json({ msg: 'Access token not found.' });
-  }
-
-  const accessTokenSecret =
-    process.env.ACCESS_TOKEN_SECRET || jwtVariable.accessTokenSecret;
-
-  const verified = await authMethod.verifyToken(
-    accessTokenFromHeader,
-    accessTokenSecret,
-  );
-
-  if (!verified) {
-    return res
-      .status(401)
-      .json({ msg: 'You do not have access to this feature' });
-  }
-
-  const user = await User.findOne({ _id: verified.payload.id })
-  if (!user) {
-    return res.status(401).json({ error: 'Not authenticated to access this resource' })
-  }
-
-  return res.status(200).json({ authenticated: true })
-}
-
-exports.refreshToken = async (req, res) => {
-  try {
-    // Retrieve the access token from the header
-    const accessTokenFromHeader = req.headers.x_authorization;
-    if (!accessTokenFromHeader) {
-      return res.status(404).json({ msg: 'Access token could not be found.' });
-    }
-
-    // Get token refresh from body
-    const refreshTokenFromBody = req.body.refreshToken;
-    if (!refreshTokenFromBody) {
-      return res.status(404).json({ msg: 'No refresh token found.' });
-    }
-
-    const accessTokenSecret =
-      process.env.ACCESS_TOKEN_SECRET || jwtVariable.accessTokenSecret;
-    const accessTokenLife =
-      process.env.ACCESS_TOKEN_LIFE || jwtVariable.accessTokenLife;
-
-    // Decode access token
-    const decoded = await authMethod.decodeToken(
-      accessTokenFromHeader,
-      accessTokenSecret,
-    );
-    if (!decoded) {
-      return res.status(406).json({ msg: 'Invalid Access token.' });
-    }
-
-    const id = decoded.payload.id; // Get ID user from payload
-
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User does not exist.' });
-    }
-
-    if (refreshTokenFromBody !== user.refreshToken) {
-      return res.status(406).json({ msg: 'Invalid token refresh.' });
-    }
-
-    // Create a new access token
-    const dataForAccessToken = {
-      id,
-    };
-
-    const accessToken = await authMethod.generateToken(
-      dataForAccessToken,
-      accessTokenSecret,
-      accessTokenLife,
-    );
-    if (!accessToken) {
-      return res
-        .status(404)
-        .json({ msg: 'Access token creation failed, please try again.' });
-    }
-    return res.json(accessToken)
-
-  } catch (error) {
-    res.json(error)
-  }
-};
 
 exports.getAllEquipmentsOnUser = async (req, res) => {
   User
@@ -163,7 +76,7 @@ exports.getAllEquipmentsOnUser = async (req, res) => {
 
 exports.getProfile = (req, res) => {
   User
-    .findById(req.user?._id, '_id name email role')
+    .findById(req.user?._id,).select("id name email role equipments tokens")
     .then(user => {
       res.status(200).json(user)
     })
@@ -171,25 +84,31 @@ exports.getProfile = (req, res) => {
 }
 
 exports.logout = async (req, res) => {
-  try {
-    req.user.tokens = req.user.tokens.filter((token) => {
-      return token.token != req.token
-    })
-    await req.user.save()
-    res.status(200).json({ msg: 'Sign out success.' })
-  } catch (error) {
-    res.status(500).json(error)
-  }
+  User
+    .findOneAndUpdate(
+      { _id: req.user._id },
+      {
+        refreshToken: '',
+        $pull: { tokens: { token: [req.headers['x-access-token']] } }
+      },
+      { new: true }
+    )
+    .then(() => res.status(200).json({ msg: 'Logout successfully' }))
+    .catch(error => res.status(500).json(error))
 }
 
 exports.logoutAllDevices = async (req, res) => {
-  try {
-    req.user.tokens.splice(0, req.user.tokens.length)
-    await req.user.save()
-    res.json()
-  } catch (error) {
-    res.status(500).json(error)
-  }
+  User
+    .findOneAndUpdate(
+      { _id: req.user._id },
+      {
+        refreshToken: '',
+        tokens: [],
+      },
+      { new: true }
+    )
+    .then(data => res.status(200).json(data))
+    .catch(error => res.status(500).json(error))
 }
 
 exports.changeRole = (req, res) => {
@@ -203,7 +122,7 @@ exports.changeRole = (req, res) => {
     .catch(error => res.status(400).json(error))
 }
 
-exports.getAllUsersWithUserAndId = async (req, res) => {
+exports.getUsernameAndIdOfAllUsers = async (req, res) => {
   User
     .find({ deleted: false })
     .sort({ createdAt: 'desc' })

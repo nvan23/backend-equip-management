@@ -13,9 +13,9 @@ mongoose.connection.on('error', (err) => {
   process.exit(1)
 })
 
-if (config.env === 'dev') {
-  mongoose.set('debug', true)
-}
+// if (config.env === 'dev') {
+//   mongoose.set('debug', true)
+// }
 
 exports.connect = () => {
   mongoose.connect(config.mongo.uri, {

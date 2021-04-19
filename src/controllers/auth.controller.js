@@ -1,44 +1,40 @@
 'use strict'
 
-const User = require('../models/user.model')
 const jwt = require('jsonwebtoken')
-const config = require('../config')
-const httpStatus = require('http-status')
-const uuidv1 = require('uuid/v1')
+const User = require("../models/user.model")
 
-exports.register = async (req, res, next) => {
+exports.refreshToken = async (req, res) => {
   try {
-    const activationKey = uuidv1()
-    const body = req.body
-    body.activationKey = activationKey
-    const user = new User(body)
-    const savedUser = await user.save()
-    res.status(httpStatus.CREATED)
-    res.send(savedUser.transform())
-  } catch (error) {
-    return next(User.checkDuplicateEmailError(error))
-  }
-}
+    // Get token refresh from body
+    const refreshTokenFromBody = req.body.refreshToken;
+    if (!refreshTokenFromBody) {
+      return res.status(404).json({ msg: 'No refresh token found.' });
+    }
 
-exports.login = async (req, res, next) => {
-  try {
-    const user = await User.findAndGenerateToken(req.body)
-    const payload = {sub: user.id}
-    const token = jwt.sign(payload, config.secret)
-    return res.json({ message: 'OK', token: token })
-  } catch (error) {
-    next(error)
-  }
-}
+    const user = await User.findById(req.user._id)
+    if (!user) {
+      return res.status(404).json({ msg: 'User does not exist.' })
+    }
 
-exports.confirm = async (req, res, next) => {
-  try {
-    await User.findOneAndUpdate(
-      { 'activationKey': req.query.key },
-      { 'active': true }
-    )
-    return res.json({ message: 'OK' })
+    if (refreshTokenFromBody !== user.refreshToken) {
+      return res.status(406).json({ msg: 'Invalid token refresh.' })
+    }
+
+    user.tokens = user.tokens.filter(token => token.token !== req.headers['x-access-token'])
+
+    await user.save()
+
+    const token = await user.generateAuthToken()
+
+    const refreshToken = await user.generateRefreshToken()
+    console.log(user)
+
+    return res.status(201).json({
+      token,
+      refreshToken
+    })
+
   } catch (error) {
-    next(error)
+    res.json(error)
   }
-}
+};

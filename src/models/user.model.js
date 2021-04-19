@@ -3,7 +3,7 @@ const mongooseDelete = require('mongoose-delete');
 const validator = require('validator')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const { SALT_ROUNDS } = require('../constants/auth')
+const { SALT_ROUNDS } = require('../constants/auth');
 
 const userSchema = mongoose.Schema({
   name: {
@@ -37,6 +37,10 @@ const userSchema = mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Equipment'
   }],
+  refreshToken: {
+    type: String,
+    default: '',
+  },
   tokens: [{
     token: {
       type: String,
@@ -70,26 +74,13 @@ userSchema.methods.generateAuthToken = async function () {
   return token
 }
 
-userSchema.statics.findByCredentials = async (email, password) => {
-  try {
-    // Search for a user by email and password.
-    const user = await User.findOne({ email })
-
-    if (!user) {
-      throw new Error({ error: 'Invalid login credentials.' })
-    }
-
-    const isPasswordMatch = await bcrypt.compare(password, user.password)
-
-    if (!isPasswordMatch) {
-      throw new Error({ error: 'Invalid login credentials' })
-    }
-    return user
-  }
-  catch {
-    return false
-  }
-
+userSchema.methods.generateRefreshToken = async function () {
+  // Generate an auth token for the user
+  const user = this
+  const refreshToken = jwt.sign({}, process.env.APP_SECRET_REFRESH)
+  user.refreshToken = refreshToken
+  await user.save()
+  return refreshToken
 }
 
 const User = mongoose.model('User', userSchema)
