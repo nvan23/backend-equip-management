@@ -14,14 +14,10 @@ const ticketSchema = mongoose.Schema({
     type: Boolean,
     default: true,
   },
-<<<<<<< HEAD
   closedAt: {
     type: String,
     default: '',
   },
-=======
-  closedAt: String,
->>>>>>> 78643d8b19f13e5c1c3fe46d67e78691a1ae58c0
 }, { timestamps: true })
 
 // Add plugin to Schema to use soft delete
@@ -32,16 +28,6 @@ ticketSchema.plugin(
   { overrideMethods: true },
 )
 
-<<<<<<< HEAD
-=======
-// init empty closed at for new ticket
-ticketSchema.methods.initClosedAt = async function () {
-  const ticket = this
-  ticket.closedAt = ''
-  await ticket.save()
-}
-
->>>>>>> 78643d8b19f13e5c1c3fe46d67e78691a1ae58c0
 const Ticket = mongoose.model('Ticket', ticketSchema)
 
 module.exports = Ticket

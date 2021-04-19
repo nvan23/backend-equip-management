@@ -15,11 +15,7 @@ const equipmentSchema = mongoose.Schema({
   },
   status: {
     type: Boolean,
-<<<<<<< HEAD
     default: true,
-=======
-    default: false,
->>>>>>> 78643d8b19f13e5c1c3fe46d67e78691a1ae58c0
     required: true
   },
   description: {
