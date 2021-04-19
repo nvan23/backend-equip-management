@@ -33,6 +33,13 @@ const userSchema = mongoose.Schema({
     default: 'user',
     required: true
   },
+<<<<<<< HEAD
+=======
+  refreshToken: {
+    type: String,
+    default: null,
+  },
+>>>>>>> 78643d8b19f13e5c1c3fe46d67e78691a1ae58c0
   equipments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Equipment'
@@ -42,8 +49,14 @@ const userSchema = mongoose.Schema({
     default: '',
   },
   tokens: [{
+<<<<<<< HEAD
     token: {
       type: String,
+=======
+    accessToken: {
+      type: String,
+      require: true
+>>>>>>> 78643d8b19f13e5c1c3fe46d67e78691a1ae58c0
     }
   }]
 }, { timestamps: true })
@@ -65,10 +78,24 @@ userSchema.pre('save', async function (next) {
   next()
 })
 
+<<<<<<< HEAD
 userSchema.methods.generateAuthToken = async function () {
   // Generate an auth token for the user
   const user = this
   const token = jwt.sign({ id: user._id }, process.env.APP_SECRET, { expiresIn: process.env.ACCESS_TOKEN_LIFE || '10h' })
+=======
+// init empty equipments for new user
+userSchema.methods.initEquipments = async function () {
+  const user = this
+  user.equipments = []
+  await user.save()
+}
+
+userSchema.methods.generateAuthToken = async function () {
+  // Generate an auth token for the user
+  const user = this
+  const token = jwt.sign({ _id: user._id }, process.env.APP_SECRET)
+>>>>>>> 78643d8b19f13e5c1c3fe46d67e78691a1ae58c0
   user.tokens = user.tokens.concat({ token })
   await user.save()
   return token
